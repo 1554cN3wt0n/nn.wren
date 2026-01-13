@@ -20,6 +20,14 @@ class Matrix {
     return m
   }
 
+  static ones(r, c) {
+    var m = Matrix.empty(r, c)
+    for (i in 0...r) {
+        for (j in 0...c) m[i, j] = 1
+    }
+    return m
+  }
+
   rows { _rows }
   cols { _cols }
   data { _data }

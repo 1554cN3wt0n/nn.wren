@@ -57,8 +57,13 @@ class Variable {
     }
   }
 
+  static ones(r, c){
+    // Return a matrix variable filled with 1's
+    return Variable.new(Matrix.ones(r, c))
+  }
+
   // --- Operations with Autograd ---
- static add(a, b) {
+  static add(a, b) {
     var out = Variable.new(a.data.add(b.data))
     out.setCreator([a, b], Fn.new { |gradOutput|
       // dL/dA = dL/dOut * 1
@@ -187,7 +192,7 @@ class Variable {
       for (r in 0...pred.data.rows) {
         for (c in 0...pred.data.cols) {
           // dMSE/dPred = 2/n * (pred - target)
-          gradInput[r, c] = gradOutput[r, c] * factor * (pred.data[r, c] - target.data[r, c])
+          gradInput[r, c] = gradOutput[0, 0] * factor * (pred.data[r, c] - target.data[r, c])
         }
       }
       pred.accumulateGrad(gradInput)

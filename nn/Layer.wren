@@ -11,22 +11,23 @@ class LinearLayer is Layer {
   construct new(inFeatures, outFeatures) {
     var rng = Random.new()
     // Initialize weights with small random values (Xavier-lite)
-    var wData = Matrix.empty(outFeatures, inFeatures)
-    for (r in 0...outFeatures) {
-      for (c in 0...inFeatures) wData[r, c] = rng.float() * 0.2 - 0.1
+    var wData = Matrix.empty(inFeatures, outFeatures)
+    for (r in 0...inFeatures) {
+      for (c in 0...outFeatures) wData[r, c] = rng.float() * 0.2 - 0.1
     }
     _w = Variable.new(wData)
     
     // Initialize bias with zeros
-    _b = Variable.new(Matrix.empty(outFeatures, 1))
+    _b = Variable.new(Matrix.empty(1, outFeatures))
+
   }
 
   parameters { [_w, _b] }
 
   forward(input) {
     // Y = W * X + B
-    var wx = Variable.matmul(_w, input)
-    return Variable.add(wx, _b)
+    var wx = Variable.matmul(input, _w)
+    return Variable.add(wx, Variable.matmul(Variable.ones(wx.data.rows, 1), _b))
   }
 }
 
