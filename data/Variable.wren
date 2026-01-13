@@ -201,6 +201,111 @@ class Variable {
     })
     return out
   }
+  
+  static softmax(a) {
+    var outData = Matrix.empty(a.data.rows, a.data.cols)
+    for (c in 0...a.data.cols) {
+      // Find max for numerical stability
+      var max = a.data[0, c]
+      for (r in 1...a.data.rows) {
+        if (a.data[r, c] > max) max = a.data[r, c]
+      }
+
+      // Calculate exps and sum
+      var sum = 0
+      for (r in 0...a.data.rows) {
+        outData[r, c] = (a.data[r, c] - max).exp
+        sum = sum + outData[r, c]
+      }
+
+      // Normalize
+      for (r in 0...a.data.rows) outData[r, c] = outData[r, c] / sum
+    }
+
+    var out = Variable.new(outData)
+    out.setCreator([a], Fn.new { |gradOutput|
+      var gradA = Matrix.empty(a.data.rows, a.data.cols)
+      for (c in 0...a.data.cols) {
+        for (i in 0...a.data.rows) {
+          var si = outData[i, c]
+          var sum = 0
+          for (j in 0...a.data.rows) {
+            var sj = outData[j, c]
+            var jacobian = (i == j) ? si * (1 - si) : -si * sj
+            sum = sum + jacobian * gradOutput[j, c]
+          }
+          gradA[i, c] = sum
+        }
+      }
+      a.accumulateGrad(gradA)
+    })
+    return out
+  }
+
+  static crossEntropy(pred, target) {
+    // Loss = -sum(target * log(pred))
+    var lossVal = 0
+    var n = pred.data.rows
+    for (r in 0...n) {
+      for (c in 0...pred.data.cols) {
+        // Add small epsilon to avoid log(0)
+        lossVal = lossVal - (target.data[r, c] * (pred.data[r, c] + 1e-9).log)
+      }
+    }
+
+    var out = Variable.new(Matrix.new([[lossVal / pred.data.cols]]))
+    out.setCreator([pred], Fn.new { |gradOutput|
+      var gradPred = Matrix.empty(pred.data.rows, pred.data.cols)
+      for (r in 0...n) {
+        for (c in 0...pred.data.cols) {
+          // dLoss/dPred = -target / pred
+          gradPred[r, c] = gradOutput[0, 0] * (-target.data[r, c] / (pred.data[r, c] + 1e-9))
+        }
+      }
+      pred.accumulateGrad(gradPred)
+    })
+    return out
+  }
+
+  static logSoftmax(a) {
+    var outData = Matrix.empty(a.data.rows, a.data.cols)
+    for (c in 0...a.data.cols) {
+      // 1. Find max for the Log-Sum-Exp trick
+      var max = a.data[0, c]
+      for (r in 1...a.data.rows) {
+        if (a.data[r, c] > max) max = a.data[r, c]
+      }
+
+      // 2. Compute Log-Sum-Exp
+      var sumExp = 0
+      for (r in 0...a.data.rows) {
+        sumExp = sumExp + (a.data[r, c] - max).exp
+      }
+      var lse = max + sumExp.log
+
+      // 3. logSoftmax(x) = x - LSE
+      for (r in 0...a.data.rows) {
+        outData[r, c] = a.data[r, c] - lse
+      }
+    }
+
+    var out = Variable.new(outData)
+    out.setCreator([a], Fn.new { |gradOutput|
+      var gradA = Matrix.empty(a.data.rows, a.data.cols)
+      for (c in 0...a.data.cols) {
+        // The gradient of LogSoftmax: dL/dx_i = gradOut_i - exp(logSoftmax_i) * sum(gradOut)
+        var sumGradOut = 0
+        for (r in 0...a.data.rows) sumGradOut = sumGradOut + gradOutput[r, c]
+
+        for (r in 0...a.data.rows) {
+          var softmaxProb = outData[r, c].exp
+          gradA[r, c] = gradOutput[r, c] - (softmaxProb * sumGradOut)
+        }
+      }
+      a.accumulateGrad(gradA)
+    })
+    return out
+  }
 
   // Helper to accumulate gradients (crucial for nodes used multiple times)
   accumulateGrad(newGrad) {

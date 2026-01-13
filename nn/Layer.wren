@@ -62,3 +62,15 @@ class SequentialLayer is Layer {
     return current
   }
 }
+
+class SoftmaxLayer is Layer {
+  construct new() {}
+  forward(input) { Variable.softmax(input) }
+  parameters { [] }
+}
+
+class LogSoftmaxLayer is Layer {
+  construct new() {}
+  forward(input) { Variable.logSoftmax(input) }
+  parameters { [] }
+}
